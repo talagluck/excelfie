@@ -8,11 +8,13 @@ from openpyxl.utils import get_column_letter
 from openpyxl.formatting.rule import ColorScaleRule
 import numpy as np
 import os
+import json
 
 resolution = 20 #decrease to increase (divides original h and w)
 rowH = 25 #actual height of the rows
 colW = 1 #actual width of the columns
 zoom = 60 #zoom factor (so you can see the entire image when opening the worksheet)
+excelFileName = "excelfieVid.xlsx"
 
 def initSheet(resW, resH): # Set up the initial sheet with the right number of rows and columns
     for i in range(1,resH+1):
@@ -62,11 +64,13 @@ def camScreenCap(): #take a screenshot, return the name
     camera.release()
     cv2.destroyAllWindows()
     return outputName
+
+def persist():
+    a
+
+
 #Main
-bookName = 'excelfieVid.xlsx' #Create workbook + sheet in memory using openpyxl
-wb = Workbook()
-ws = wb.worksheets[0]
-ws.title='Excelfie'
+excelExists = os.path.isfile(excelFileName)
 
 imageName = camScreenCap() #Take initial screenshot from which to base sizes
 img = cv2.imread(imageName)
@@ -74,22 +78,39 @@ h,w,c = img.shape #get height and width (c is also returned by .shape but not us
 resW = int(w/resolution)*3 # *3 because it's 3 cells/pixel (for b, g, r)
 resW3 = resW//3 #used for resizing the image
 resH = int(h/resolution)
-initSheet(resW,resH)
-pixelList = resizeImage(imageName, resH, resW//3)
 
-setCellDims(ws,resW,resH)
-ws.sheet_view.zoomScale = zoom #set zoom so that it looks right when you open wb
-setCondFormatting(ws,resH,resW)
-wb.save(bookName)
-os.remove(imageName) #delete screenshot used for sizing
+if not excelExists:
+    bookName = excelFileName #Create workbook + sheet in memory using openpyxl
+    wb = Workbook()
+    ws = wb.worksheets[0]
+    ws.title='Excelfie'
 
-wb = xw.Book(bookName) #set up wb and sheet in xlwings
+    initSheet(resW,resH)
+    # pixelList = resizeImage(imageName, resH, resW//3)
+
+    setCellDims(ws,resW,resH)
+    ws.sheet_view.zoomScale = zoom #set zoom so that it looks right when you open wb
+    setCondFormatting(ws,resH,resW)
+    wb.save(bookName)
+    os.remove(imageName) #delete screenshot used for sizing
+
+wb = xw.Book(excelFileName) #set up wb and sheet in xlwings
 ws = wb.sheets[0]
 
 camera = cv2.VideoCapture(0) #start camera
+
+recordList = []
+
+recordFileName = "recording_"+str(datetime.datetime.now().time())[:8]+".json"
+
+# open(recordFileName, "w")
 
 while True:
     ret, frame = camera.read() #get image info - frame contains pixel info
     pixelList = cv2.resize(frame, (resW3, resH))
     pixelList = np.reshape(np.ravel(pixelList),(resH,resW)).tolist() #reshape the array so it can be output to cells
     ws.range((1,1)).value = pixelList
+    recordList.append(pixelList)
+    with open(recordFileName,"w") as recordFile:
+        json.dump(recordList,recordFile)
+    #     recordFile.write(str(pixelList[0])+"|")
